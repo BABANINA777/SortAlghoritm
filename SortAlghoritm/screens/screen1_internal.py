@@ -79,16 +79,304 @@ def create_screen1(parent, on_back):
         return steps
 
     def generate_selection_sort_log(numbers):
-        return []
+        """Прогоняет сортировку выбором и собирает список всех шагов."""
+        steps = []
+        nums = list(numbers)
+        n = len(nums)
+        step_num = 1
+
+        for i in range(n - 1):
+            min_idx = i
+            # Поиск минимального элемента в оставшейся неотсортированной части массива
+            for j in range(i + 1, n):
+                a, b = nums[j], nums[min_idx]
+                if a < b:
+                    steps.append({
+                        "log_line": f"Шаг {step_num}: {a} < {b} ➔ новый минимум (поз. {j})\n",
+                        "explanation": f"Сравниваем элемент {a} (поз. {j}) с текущим минимумом {b} (поз. {min_idx}). Нашли меньший элемент! Запоминаем его позицию.",
+                        "nums": list(nums),
+                        "indices": (j, min_idx),
+                        "action": "compare"
+                    })
+                    min_idx = j
+                else:
+                    steps.append({
+                        "log_line": f"Шаг {step_num}: {a} >= {b} ➔ минимум прежний (поз. {min_idx})\n",
+                        "explanation": f"Сравниваем элемент {a} (поз. {j}) с текущим минимумом {b} (поз. {min_idx}). Он не меньше, минимум остаётся прежним.",
+                        "nums": list(nums),
+                        "indices": (j, min_idx),
+                        "action": "compare"
+                    })
+                step_num += 1
+
+            # Перемещение найденного минимума на начало неотсортированной зоны
+            if min_idx != i:
+                old_val = nums[i]
+                min_val = nums[min_idx]
+                nums[i], nums[min_idx] = nums[min_idx], nums[i]
+                steps.append({
+                    "log_line": f"Шаг {step_num}: обмен {min_val} и {old_val} ➔ ставим минимум на поз. {i}\n",
+                    "explanation": f"Ставим найденный минимум {min_val} на первую неотсортированную позицию {i}, меняя его с {old_val}!",
+                    "nums": list(nums),
+                    "indices": (i, min_idx),
+                    "action": "swap"
+                })
+                step_num += 1
+            else:
+                steps.append({
+                    "log_line": f"Шаг {step_num}: минимум {nums[i]} уже на позиции {i} ➔ без обмена\n",
+                    "explanation": f"Минимальный элемент неотсортированной части {nums[i]} уже находится на нужной позиции {i}. Перестановка не требуется.",
+                    "nums": list(nums),
+                    "indices": (i, i),
+                    "action": "compare"
+                })
+                step_num += 1
+
+        # Финальный шаг для фиксации завершения сортировки массива
+        steps.append({
+            "log_line": "Сортировка выбором завершена. Готово!\n",
+            "explanation": "Все элементы поочередно расставлены на свои места. Массив полностью отсортирован!",
+            "nums": list(nums),
+            "indices": (),
+            "action": "done"
+        })
+
+        return steps
 
     def generate_quick_sort_log(numbers):
-        return []
+        """Прогоняет быструю сортировку Хоара и собирает список всех шагов."""
+        steps = []
+        nums = list(numbers)
+        step_num = 1
+
+        def quick_sort(low, high):
+            nonlocal step_num
+            # Базовый случай рекурсии: отрезок из одного элемента или пустой
+            if low >= high:
+                return
+
+            # Выбор опорного элемента по центру отрезка (стратегия разделения Хоара)
+            mid = (low + high) // 2
+            pivot = nums[mid]
+
+            steps.append({
+                "log_line": f"Шаг {step_num}: отрезок [{low}..{high}], опорный {pivot} (поз. {mid})\n",
+                "explanation": f"Выбираем опорный элемент {pivot} на позиции {mid} для подмассива с индексами от {low} до {high}.",
+                "nums": list(nums),
+                "indices": (low, high),
+                "action": "compare"
+            })
+            step_num += 1
+
+            i = low
+            j = high
+
+            # Встречное движение указателей и разделение массива относительно pivot
+            while i <= j:
+                # Поиск слева элемента, который больше либо равен pivot
+                while nums[i] < pivot:
+                    steps.append({
+                        "log_line": f"Шаг {step_num}: {nums[i]} < {pivot} (опорный) ➔ верно, идём вправо\n",
+                        "explanation": f"Сравниваем {nums[i]} (поз. {i}) с опорным {pivot}. Элемент меньше опорного, оставляем слева.",
+                        "nums": list(nums),
+                        "indices": (i, mid),
+                        "action": "compare"
+                    })
+                    step_num += 1
+                    i += 1
+
+                # Поиск справа элемента, который меньше либо равен pivot
+                while nums[j] > pivot:
+                    steps.append({
+                        "log_line": f"Шаг {step_num}: {nums[j]} > {pivot} (опорный) ➔ верно, идём влево\n",
+                        "explanation": f"Сравниваем {nums[j]} (поз. {j}) с опорным {pivot}. Элемент больше опорного, оставляем справа.",
+                        "nums": list(nums),
+                        "indices": (j, mid),
+                        "action": "compare"
+                    })
+                    step_num += 1
+                    j -= 1
+
+                # Обмен элементов, оказавшихся не в своих половинах массива
+                if i <= j:
+                    if i < j:
+                        a, b = nums[i], nums[j]
+                        nums[i], nums[j] = nums[j], nums[i]
+                        # Сохраняем актуальный индекс опорного элемента при перемещении
+                        if mid == i:
+                            mid = j
+                        elif mid == j:
+                            mid = i
+                        steps.append({
+                            "log_line": f"Шаг {step_num}: обмен {a} и {b} ➔ позиции {i} и {j}\n",
+                            "explanation": f"Меняем местами {a} на позиции {i} и {b} на позиции {j}, чтобы меньшие оказались слева, а большие справа.",
+                            "nums": list(nums),
+                            "indices": (i, j),
+                            "action": "swap"
+                        })
+                        step_num += 1
+                    i += 1
+                    j -= 1
+
+            # Рекурсивная обработка левой и правой сформированных частей
+            if low < j:
+                quick_sort(low, j)
+            if i < high:
+                quick_sort(i, high)
+
+        if len(nums) > 1:
+            quick_sort(0, len(nums) - 1)
+
+        # Финальный шаг фиксации завершения быстрой сортировки
+        steps.append({
+            "log_line": "Быстрая сортировка завершена. Готово!\n",
+            "explanation": "Все подмассивы разделены и отсортированы. Массив полностью упорядочен!",
+            "nums": list(nums),
+            "indices": (),
+            "action": "done"
+        })
+
+        return steps
 
     def generate_heap_sort_log(numbers):
-        return []
+        """Прогоняет пирамидальную сортировку (HeapSort) и собирает список всех шагов."""
+        steps = []
+        nums = list(numbers)
+        n = len(nums)
+        step_num = 1
+
+        def sift_down(root, size):
+            nonlocal step_num
+            # Просеивание элемента вниз для поддержания свойства max-heap (родитель >= потомков)
+            while True:
+                left = 2 * root + 1
+                right = 2 * root + 2
+                largest = root
+
+                # Проверка левого потомка на превосходство над текущим максимумом
+                if left < size:
+                    if nums[left] > nums[largest]:
+                        steps.append({
+                            "log_line": f"Шаг {step_num}: потомок {nums[left]} > {nums[largest]} ➔ претендент на обмен\n",
+                            "explanation": f"Сравниваем левого потомка {nums[left]} (поз. {left}) с текущим максимумом {nums[largest]} (поз. {largest}). Потомок больше!",
+                            "nums": list(nums),
+                            "indices": (left, largest),
+                            "action": "compare"
+                        })
+                        largest = left
+                    else:
+                        steps.append({
+                            "log_line": f"Шаг {step_num}: потомок {nums[left]} <= {nums[largest]} ➔ порядок соблюден\n",
+                            "explanation": f"Левый потомок {nums[left]} (поз. {left}) не превосходит {nums[largest]} (поз. {largest}). Порядок верен.",
+                            "nums": list(nums),
+                            "indices": (left, largest),
+                            "action": "compare"
+                        })
+                    step_num += 1
+
+                # Проверка правого потомка на превосходство над текущим максимумом
+                if right < size:
+                    if nums[right] > nums[largest]:
+                        steps.append({
+                            "log_line": f"Шаг {step_num}: потомок {nums[right]} > {nums[largest]} ➔ новый претендент на обмен\n",
+                            "explanation": f"Сравниваем правого потомка {nums[right]} (поз. {right}) с {nums[largest]} (поз. {largest}). Правый потомок оказался еще больше!",
+                            "nums": list(nums),
+                            "indices": (right, largest),
+                            "action": "compare"
+                        })
+                        largest = right
+                    else:
+                        steps.append({
+                            "log_line": f"Шаг {step_num}: потомок {nums[right]} <= {nums[largest]} ➔ порядок соблюден\n",
+                            "explanation": f"Правый потомок {nums[right]} (поз. {right}) не превосходит {nums[largest]} (поз. {largest}). Порядок верен.",
+                            "nums": list(nums),
+                            "indices": (right, largest),
+                            "action": "compare"
+                        })
+                    step_num += 1
+
+                # Если наибольший среди потомков превосходит корень, выполняем обмен и продолжаем спуск
+                if largest != root:
+                    a, b = nums[root], nums[largest]
+                    nums[root], nums[largest] = nums[largest], nums[root]
+                    steps.append({
+                        "log_line": f"Шаг {step_num}: обмен {a} и {b} ➔ просеивание вниз\n",
+                        "explanation": f"Меняем родителя {a} (поз. {root}) с большим потомком {b} (поз. {largest}), восстанавливая свойства кучи.",
+                        "nums": list(nums),
+                        "indices": (root, largest),
+                        "action": "swap"
+                    })
+                    step_num += 1
+                    root = largest
+                else:
+                    break
+
+        if n > 1:
+            steps.append({
+                "log_line": f"Шаг {step_num}: Фаза 1 ➔ построение пирамиды\n",
+                "explanation": "Начинаем построение двоичной кучи (пирамиды), просеивая элементы снизу вверх.",
+                "nums": list(nums),
+                "indices": (),
+                "action": "compare"
+            })
+            step_num += 1
+
+            # Фаза 1: построение кучи снизу вверх, начиная с первого нелистового узла
+            for i in range(n // 2 - 1, -1, -1):
+                sift_down(i, n)
+
+            steps.append({
+                "log_line": f"Шаг {step_num}: Фаза 2 ➔ извлечение максимума и сортировка\n",
+                "explanation": "Куча сформирована: в вершине максимальный элемент. Начинаем переносить максимумы в конец массива.",
+                "nums": list(nums),
+                "indices": (),
+                "action": "compare"
+            })
+            step_num += 1
+
+            # Фаза 2: перемещение текущего максимума из корня в отсортированный конец
+            for end in range(n - 1, 0, -1):
+                a, b = nums[0], nums[end]
+                nums[0], nums[end] = nums[end], nums[0]
+                steps.append({
+                    "log_line": f"Шаг {step_num}: обмен вершины {a} и элемента {b} ➔ максимум на позицию {end}\n",
+                    "explanation": f"Переносим максимальный элемент {a} из вершины кучи на его итоговое место {end}.",
+                    "nums": list(nums),
+                    "indices": (0, end),
+                    "action": "swap"
+                })
+                step_num += 1
+                sift_down(0, end)
+
+        # Финальный шаг фиксации завершения пирамидальной сортировки
+        steps.append({
+            "log_line": "Пирамидальная сортировка завершена. Готово!\n",
+            "explanation": "Все элементы из кучи извлечены и заняли правильные места по возрастанию!",
+            "nums": list(nums),
+            "indices": (),
+            "action": "done"
+        })
+
+        return steps
 
     def on_select_algorithm(value):
-        """Выбирает алгоритм и сохраняет его рассчитанный лог в current_data."""
+        """Выбирает алгоритм, сбрасывает массив, очищает холст и пересчитывает логи."""
+        # Остановка автовоспроизведения при смене алгоритма
+        if current_data["is_running"]:
+            toggle_play()
+
+        # Отмена активной анимации перемещения пузырьков
+        nonlocal anim_job_id, is_animating
+        if anim_job_id is not None:
+            frame.after_cancel(anim_job_id)
+            anim_job_id = None
+        is_animating = False
+
+        # Полный сброс прогресса и возврат массива к исходным значениям
+        current_data["step"] = 0
+        current_data["numbers"] = list(current_data["initial_numbers"])
+
+        # Расчет списка шагов для выбранного пользователем алгоритма
         if value == "BubbleSort":
             current_data["log_full_array"] = generate_bubble_sort_log(current_data["numbers"])
         elif value == "SelectionSort":
@@ -97,6 +385,21 @@ def create_screen1(parent, on_back):
             current_data["log_full_array"] = generate_quick_sort_log(current_data["numbers"])
         elif value == "HeapSort":
             current_data["log_full_array"] = generate_heap_sort_log(current_data["numbers"])
+
+        # Очистка лога шагов на экране
+        log_current_array.clear()
+        log_current_array.append("Лог:\n")
+        update_log_display()
+
+        # Обновление текстовых меток состояния
+        step_label.configure(text=f"Шаг: {current_data['step']}")
+        explanation_label.configure(text=f"Выбран алгоритм: {value}. Исходное состояние.")
+
+        # Отрисовка начального состояния в соответствующем виде (шарики или столбики)
+        if value == "BubbleSort":
+            bubble_render()
+        else:
+            sort_render()
 
     # ==========================================
     # 3. ОСНОВНЫЕ ФРЕЙМЫ ИНТЕРФЕЙСА
@@ -175,7 +478,7 @@ def create_screen1(parent, on_back):
     # Интерактивное перемещение холста зажатой мышью
     canvas.bind("<ButtonPress-1>", lambda event: canvas.scan_mark(event.x, event.y) if not is_animating else None)
     canvas.bind("<B1-Motion>", lambda event: canvas.scan_dragto(event.x, event.y, gain=1) if not is_animating else None)
-    canvas.bind("<Configure>", lambda event: bubble_render())
+    canvas.bind("<Configure>", lambda event: bubble_render() if algo_selector.get() == "BubbleSort" else sort_render())
     canvas.zoom_level = 1.0
     def zoom(event):
         if is_animating:
@@ -257,7 +560,7 @@ def create_screen1(parent, on_back):
             canvas_height = 400
         y_center = canvas_height // 2
 
-        # Новая формула расстояния и радиусов для исключения наложения
+        # формула расстояния и радиусов для исключения наложения
         r_min = 22
         r_max = 44
         gap = 48
@@ -470,6 +773,107 @@ def create_screen1(parent, on_back):
 
             shake_step()
 
+    # Визуализация любой сортировки через столбики
+    def sort_render(indices=(), action="idle"):
+        """Отрисовывает массив в виде вертикальных столбиков без анимации.
+
+        Вызывается на каждом шаге для SelectionSort, QuickSort и HeapSort.
+        Подсвечивает сравниваемые (compare), перемещаемые (swap) и завершенные (done) элементы.
+        """
+        canvas.delete("all")
+        canvas.zoom_level = 1.0
+
+        # Определение доступной рабочей области холста
+        canvas_width = canvas.winfo_width()
+        if canvas_width < 100:
+            canvas_width = 1000
+        canvas_height = canvas.winfo_height()
+        if canvas_height < 100:
+            canvas_height = 600
+
+        nums = current_data["numbers"]
+        n = len(nums)
+        if n == 0:
+            return
+
+        margin_x = 40
+        y_bottom = canvas_height - 60
+        y_top = 50
+        avail_h = max(50, y_bottom - y_top)
+        avail_w = max(100, canvas_width - 2 * margin_x)
+
+        max_num = max(nums) if nums else 1
+        if max_num <= 0:
+            max_num = 1
+
+        # Расчет ширины столбиков и зазоров между ними
+        slot_w = avail_w / n
+        gap = max(2, int(slot_w * 0.12))
+        bar_w = max(4, slot_w - gap)
+        start_x = margin_x + (avail_w - n * slot_w) / 2
+
+        # Отрисовка базовой горизонтальной линии (опоры)
+        canvas.create_line(
+            margin_x - 10, y_bottom,
+            canvas_width - margin_x + 10, y_bottom,
+            fill="#CBD5E1", width=2
+        )
+
+        # Отрисовка столбиков с цветовой дифференциацией по типу действия
+        for i, num in enumerate(nums):
+            if action == "done" and not indices:
+                fill_color = "#34C759"
+                outline_color = "#2E7D32"
+            elif i in indices:
+                if action == "swap":
+                    fill_color = "#FF3B30"
+                    outline_color = "#B91C1C"
+                elif action == "compare":
+                    fill_color = "#FF9500"
+                    outline_color = "#D97706"
+                elif action == "done":
+                    fill_color = "#34C759"
+                    outline_color = "#2E7D32"
+                else:
+                    fill_color = "#0A84FF"
+                    outline_color = "#1D4ED8"
+            else:
+                fill_color = "#0A84FF"
+                outline_color = "#0284C7"
+
+            # Вычисление высоты и координат текущего столбика
+            bar_h = max(16, int((num / max_num) * avail_h))
+            x1 = start_x + i * slot_w + gap / 2
+            x2 = x1 + bar_w
+            y1 = y_bottom - bar_h
+            y2 = y_bottom
+
+            # Отрисовка прямоугольника столбика
+            canvas.create_rectangle(
+                x1, y1, x2, y2,
+                fill=fill_color,
+                outline=outline_color,
+                width=1.5
+            )
+
+            # Отображение числовых значений и индексов при достаточной ширине
+            if bar_w >= 14:
+                font_size = max(8, min(14, int(bar_w * 0.38)))
+                # Значение элемента сверху над столбиком
+                canvas.create_text(
+                    (x1 + x2) / 2, y1 - 10,
+                    text=str(num),
+                    fill="#1E293B",
+                    font=("Segoe UI", font_size, "bold")
+                )
+                # Индекс массива под базовой линией
+                canvas.create_text(
+                    (x1 + x2) / 2, y_bottom + 14,
+                    text=str(i),
+                    fill="#64748B",
+                    font=("Segoe UI", max(8, font_size - 2))
+                )
+
     # ==========================================
     # 6. ВИДЖЕТЫ НИЖНЕЙ ПАНЕЛИ И ОБРАБОТЧИКИ
     # ==========================================
@@ -495,27 +899,34 @@ def create_screen1(parent, on_back):
 
             current_data["numbers"] = list(step_item["nums"])
 
-            # Анимация для BubbleSort
-            if algo_selector.get() == "BubbleSort" and step_item.get("indices"):
-                idx1, idx2 = step_item["indices"]
-                action = step_item.get("action", "compare")
+            # Отображение шага: анимация для BubbleSort либо обновление столбиков для остальных
+            if algo_selector.get() == "BubbleSort":
+                if step_item.get("indices"):
+                    idx1, idx2 = step_item["indices"]
+                    action = step_item.get("action", "compare")
 
-                def after_animation():
-                    if current_data["is_running"]:
-                        nonlocal play_job_id
-                        play_job_id = frame.after(current_data["delay_ms"], play_tick)
+                    def after_animation():
+                        if current_data["is_running"]:
+                            nonlocal play_job_id
+                            play_job_id = frame.after(current_data["delay_ms"], play_tick)
 
-                babble_swich_animation(idx1, idx2, action, on_complete=after_animation)
-                return True
+                    babble_swich_animation(idx1, idx2, action, on_complete=after_animation)
+                    return True
+                else:
+                    bubble_render()
+                    if step_item.get("action") == "done":
+                        for b in babbles:
+                            set_bubble_style(b, "done")
             else:
-                bubble_render()
-                if step_item.get("action") == "done":
-                    for b in babbles:
-                        set_bubble_style(b, "done")
-                if current_data["is_running"]:
-                    nonlocal play_job_id
-                    play_job_id = frame.after(current_data["delay_ms"], play_tick)
-                return True
+                sort_render(
+                    indices=step_item.get("indices", ()),
+                    action=step_item.get("action", "compare")
+                )
+
+            if current_data["is_running"]:
+                nonlocal play_job_id
+                play_job_id = frame.after(current_data["delay_ms"], play_tick)
+            return True
         return False
 
     def on_step_back():
@@ -535,11 +946,20 @@ def create_screen1(parent, on_back):
                 prev_item = current_data["log_full_array"][current_data["step"] - 1]
                 explanation_label.configure(text=prev_item["explanation"])
                 current_data["numbers"] = list(prev_item["nums"])
+                if algo_selector.get() == "BubbleSort":
+                    bubble_render()
+                else:
+                    sort_render(
+                        indices=prev_item.get("indices", ()),
+                        action=prev_item.get("action", "compare")
+                    )
             else:
                 explanation_label.configure(text="Исходное состояние массива")
                 current_data["numbers"] = list(current_data["initial_numbers"])
-
-            bubble_render()
+                if algo_selector.get() == "BubbleSort":
+                    bubble_render()
+                else:
+                    sort_render()
 
     def play_tick():
         """Один такт автовоспроизведения."""
@@ -592,7 +1012,10 @@ def create_screen1(parent, on_back):
 
         current_data["step"] = 0
         current_data["numbers"] = list(current_data["initial_numbers"])
-        bubble_render()
+        if algo_selector.get() == "BubbleSort":
+            bubble_render()
+        else:
+            sort_render()
 
         log_current_array.clear()
         log_current_array.append("Лог:\n")
@@ -742,7 +1165,10 @@ def create_screen1(parent, on_back):
         log_current_array.append("Лог:\n")
         update_log_display()
 
-        bubble_render()
+        if algo_selector.get() == "BubbleSort":
+            bubble_render()
+        else:
+            sort_render()
 
         step_label.configure(text=f"Шаг: {current_data['step']}")
         explanation_label.configure(text=f"Сгенерирован новый массив из {val} элементов")
