@@ -144,20 +144,44 @@ def create_screen1(parent, on_back):
         return steps
 
     def generate_quick_sort_log(numbers):
-        """Прогоняет быструю сортировку Хоара и собирает список всех шагов."""
-        steps = []
+        """Прогоняет быструю сортировку Хоара (in-place) и собирает список всех шагов.
+
+        Реализация: классическая схема Хоара со встречным движением указателей i и j
+        и обменами внутри исходного массива — без создания промежуточных списков.
+        Сложность по времени: O(N log N) в среднем, O(N²) в худшем случае.
+        Дополнительная память: O(log N) — стек рекурсии.
+        """
+        visual_context = {
+            "active_range": (),
+            "pivot_index": None,
+            "muted_ranges": (),
+        }
+
+        class VisualSteps(list):
+            """Добавляет к каждому кадру актуальные границы и pivot."""
+            def append(self, item):
+                item.setdefault("active_range", visual_context["active_range"])
+                item.setdefault("pivot_index", visual_context["pivot_index"])
+                item.setdefault("muted_ranges", visual_context["muted_ranges"])
+                super().append(item)
+
+        steps = VisualSteps()
         nums = list(numbers)
         step_num = 1
 
-        def quick_sort(low, high):
+        def quick_sort(low, high, muted_ranges=()):
             nonlocal step_num
             # Базовый случай рекурсии: отрезок из одного элемента или пустой
             if low >= high:
                 return
 
+            visual_context["active_range"] = (low, high)
+            visual_context["muted_ranges"] = muted_ranges
+
             # Выбор опорного элемента по центру отрезка (стратегия разделения Хоара)
             mid = (low + high) // 2
             pivot = nums[mid]
+            visual_context["pivot_index"] = mid
 
             steps.append({
                 "log_line": f"Шаг {step_num}: отрезок [{low}..{high}], опорный {pivot} (поз. {mid})\n",
@@ -207,6 +231,7 @@ def create_screen1(parent, on_back):
                             mid = j
                         elif mid == j:
                             mid = i
+                        visual_context["pivot_index"] = mid
                         steps.append({
                             "log_line": f"Шаг {step_num}: обмен {a} и {b} ➔ позиции {i} и {j}\n",
                             "explanation": f"Меняем местами {a} на позиции {i} и {b} на позиции {j}, чтобы меньшие оказались слева, а большие справа.",
@@ -220,9 +245,9 @@ def create_screen1(parent, on_back):
 
             # Рекурсивная обработка левой и правой сформированных частей
             if low < j:
-                quick_sort(low, j)
+                quick_sort(low, j, muted_ranges + ((i, high),))
             if i < high:
-                quick_sort(i, high)
+                quick_sort(i, high, muted_ranges + ((low, j),))
 
         if len(nums) > 1:
             quick_sort(0, len(nums) - 1)
@@ -239,8 +264,23 @@ def create_screen1(parent, on_back):
         return steps
 
     def generate_heap_sort_log(numbers):
-        """Прогоняет пирамидальную сортировку (HeapSort) и собирает список всех шагов."""
-        steps = []
+        """Прогоняет пирамидальную сортировку (HeapSort) и собирает список всех шагов.
+
+        Реализация: in-place HeapSort с итеративным sift_down (просеивание вниз).
+        Сложность по времени: O(N log N) гарантированно.
+        Дополнительная память: O(1) — сортировка выполняется непосредственно
+        в nums (копии исходного массива), стек sift_down итеративен.
+        """
+        visual_context = {"heap_size": len(numbers), "phase": "build"}
+
+        class VisualSteps(list):
+            """Добавляет к каждому кадру размер активной кучи."""
+            def append(self, item):
+                item.setdefault("heap_size", visual_context["heap_size"])
+                item.setdefault("heap_phase", visual_context["phase"])
+                super().append(item)
+
+        steps = VisualSteps()
         nums = list(numbers)
         n = len(nums)
         step_num = 1
@@ -336,6 +376,8 @@ def create_screen1(parent, on_back):
 
             # Фаза 2: перемещение текущего максимума из корня в отсортированный конец
             for end in range(n - 1, 0, -1):
+                visual_context["phase"] = "extract"
+                visual_context["heap_size"] = end + 1
                 a, b = nums[0], nums[end]
                 nums[0], nums[end] = nums[end], nums[0]
                 steps.append({
@@ -346,6 +388,7 @@ def create_screen1(parent, on_back):
                     "action": "swap"
                 })
                 step_num += 1
+                visual_context["heap_size"] = end
                 sift_down(0, end)
 
         # Финальный шаг фиксации завершения пирамидальной сортировки
@@ -417,8 +460,9 @@ def create_screen1(parent, on_back):
 
     canvas_container = ctk.CTkFrame(content_frame, fg_color="transparent")
     canvas_container.grid(row=0, column=0, sticky="nsew")
-    canvas_container.grid_columnconfigure(0, weight=1)
-    canvas_container.grid_columnconfigure(1, weight=3)
+    canvas_container.grid_columnconfigure(0, weight=1, minsize=220)
+    canvas_container.grid_columnconfigure(1, weight=4, minsize=550)
+    canvas_container.grid_columnconfigure(2, weight=3, minsize=360)
     canvas_container.grid_rowconfigure(0, weight=1)
 
     info_container = ctk.CTkFrame(content_frame, fg_color="transparent")
@@ -473,7 +517,7 @@ def create_screen1(parent, on_back):
     )
     log_textbox.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-    canvas = ctk.CTkCanvas(canvas_container, width=1750, height=700, bg="#FFFFFF", highlightthickness=0)
+    canvas = ctk.CTkCanvas(canvas_container, width=900, height=700, bg="#FFFFFF", highlightthickness=0)
     canvas.grid(row=0, column=1, sticky="nsew", padx=10, pady=5)
     # Интерактивное перемещение холста зажатой мышью
     canvas.bind("<ButtonPress-1>", lambda event: canvas.scan_mark(event.x, event.y) if not is_animating else None)
@@ -502,6 +546,19 @@ def create_screen1(parent, on_back):
     canvas.bind("<MouseWheel>", zoom)  # Для Windows и macOS
     canvas.bind("<Button-4>", zoom)  # Для Linux (прокрутка вверх)
     canvas.bind("<Button-5>", zoom)  # Для Linux (прокрутка вниз)
+
+    heap_tree_canvas = ctk.CTkCanvas(
+        canvas_container,
+        width=420,
+        height=700,
+        bg="#F8FAFC",
+        highlightthickness=0
+    )
+    heap_tree_canvas.grid(row=0, column=2, sticky="nsew", padx=(0, 10), pady=5)
+    canvas_container.bind(
+        "<Configure>",
+        lambda event: bubble_render() if algo_selector.get() == "BubbleSort" else sort_render()
+    )
 
     step_label = ctk.CTkLabel(
         info_container,
@@ -774,7 +831,71 @@ def create_screen1(parent, on_back):
             shake_step()
 
     # Визуализация любой сортировки через столбики
-    def sort_render(indices=(), action="idle"):
+    def heap_tree_render(nums, heap_size, phase, indices=()):
+        """Показывает элементы активной двоичной кучи в виде дерева."""
+        heap_tree_canvas.delete("all")
+        if not nums or algo_selector.get() != "HeapSort":
+            return
+
+        width = max(320, heap_tree_canvas.winfo_width())
+        height = max(300, heap_tree_canvas.winfo_height())
+        active_size = max(0, min(heap_size, len(nums)))
+        levels = max(1, (active_size + 1).bit_length())
+        level_gap = min(90, max(50, (height - 80) / levels))
+        center_x = width / 2
+        radius = 19
+
+        heap_tree_canvas.create_text(
+            width / 2, 14,
+            text="Двоичная max-куча (индексы массива: 2i+1 и 2i+2)",
+            fill="#1E293B", font=("Arial", 11, "bold")
+        )
+
+        coords = {}
+        for index in range(active_size):
+            level = (index + 1).bit_length() - 1
+            offset = index - (2 ** level - 1)
+            count = 2 ** level
+            spacing = width / (count + 1)
+            x = spacing * (offset + 1)
+            y = 45 + level * level_gap
+            coords[index] = (x, y)
+
+        for index, (x, y) in coords.items():
+            parent = (index - 1) // 2
+            if parent in coords:
+                heap_tree_canvas.create_line(
+                    coords[parent][0], coords[parent][1] + radius,
+                    x, y - radius,
+                    fill="#94A3B8", width=2
+                )
+
+        for index, (x, y) in coords.items():
+            if index in indices:
+                fill = "#FF9500" if phase == "build" else "#FF3B30"
+                outline = "#B45309" if phase == "build" else "#B91C1C"
+            elif index == 0 and active_size:
+                fill, outline = "#7C3AED", "#5B21B6"
+            else:
+                fill, outline = "#DBEAFE", "#2563EB"
+            heap_tree_canvas.create_oval(
+                x - radius, y - radius, x + radius, y + radius,
+                fill=fill, outline=outline, width=2
+            )
+            heap_tree_canvas.create_text(x, y, text=str(nums[index]), fill="#0F172A", font=("Arial", 11, "bold"))
+
+        heap_tree_canvas.create_text(
+            width / 2, height - 24,
+            text=f"Активная куча: {active_size} элементов | {phase}",
+            fill="#475569", font=("Arial", 11, "bold")
+        )
+        heap_tree_canvas.create_text(
+            width / 2, height - 8,
+            text="Фиолетовый — вершина, оранжевый/красный — текущая проверка, серый — уже отсортированная часть",
+            fill="#64748B", font=("Arial", 9)
+        )
+
+    def sort_render(indices=(), action="idle", pivot_index=None, active_range=(), muted_ranges=(), heap_size=None, heap_phase="build"):
         """Отрисовывает массив в виде вертикальных столбиков без анимации.
 
         Вызывается на каждом шаге для SelectionSort, QuickSort и HeapSort.
@@ -824,6 +945,15 @@ def create_screen1(parent, on_back):
             if action == "done" and not indices:
                 fill_color = "#34C759"
                 outline_color = "#2E7D32"
+            elif algo_selector.get() == "HeapSort" and heap_size is not None and i >= heap_size:
+                fill_color = "#CBD5E1"
+                outline_color = "#94A3B8"
+            elif any(start <= i <= end for start, end in muted_ranges):
+                fill_color = "#CBD5E1"
+                outline_color = "#94A3B8"
+            elif pivot_index == i:
+                fill_color = "#7C3AED"
+                outline_color = "#5B21B6"
             elif i in indices:
                 if action == "swap":
                     fill_color = "#FF3B30"
@@ -874,6 +1004,21 @@ def create_screen1(parent, on_back):
                     font=("Segoe UI", max(8, font_size - 2))
                 )
 
+        if active_range and algo_selector.get() == "QuickSort":
+            start, end = active_range
+            if 0 <= start < n and 0 <= end < n:
+                left = start_x + start * slot_w
+                right = start_x + (end + 1) * slot_w
+                canvas.create_rectangle(
+                    left, y_top - 8, right, y_bottom + 5,
+                    outline="#64748B", width=2, dash=(4, 3)
+                )
+
+        if algo_selector.get() == "HeapSort":
+            heap_tree_render(nums, heap_size if heap_size is not None else n, heap_phase, indices)
+        else:
+            heap_tree_canvas.delete("all")
+
     # ==========================================
     # 6. ВИДЖЕТЫ НИЖНЕЙ ПАНЕЛИ И ОБРАБОТЧИКИ
     # ==========================================
@@ -920,7 +1065,12 @@ def create_screen1(parent, on_back):
             else:
                 sort_render(
                     indices=step_item.get("indices", ()),
-                    action=step_item.get("action", "compare")
+                    action=step_item.get("action", "compare"),
+                    pivot_index=step_item.get("pivot_index"),
+                    active_range=step_item.get("active_range", ()),
+                    muted_ranges=step_item.get("muted_ranges", ()),
+                    heap_size=step_item.get("heap_size"),
+                    heap_phase=step_item.get("heap_phase", "build")
                 )
 
             if current_data["is_running"]:
@@ -951,7 +1101,12 @@ def create_screen1(parent, on_back):
                 else:
                     sort_render(
                         indices=prev_item.get("indices", ()),
-                        action=prev_item.get("action", "compare")
+                        action=prev_item.get("action", "compare"),
+                        pivot_index=prev_item.get("pivot_index"),
+                        active_range=prev_item.get("active_range", ()),
+                        muted_ranges=prev_item.get("muted_ranges", ()),
+                        heap_size=prev_item.get("heap_size"),
+                        heap_phase=prev_item.get("heap_phase", "build")
                     )
             else:
                 explanation_label.configure(text="Исходное состояние массива")

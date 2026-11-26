@@ -63,10 +63,14 @@ def radix_sort_strings(arr):
 
 
 def quick_sort_strings(arr):
-    """Быстрая сортировка Хоара (QuickSort) для массива строк.
-    
-    Использует разделение массива относительно центрального опорного элемента.
-    Сложность в среднем: O(N * log N).
+    """Быстрая сортировка строк через рекурсивное трёхстороннее разбиение (Dutch Flag).
+
+    На каждом уровне рекурсии создаются три новых списка (left / middle / right),
+    что даёт дополнительную память O(N) в среднем случае и O(N²) в худшем.
+    Это НЕ классическая схема Хоара (in-place с O(log N) стека): данная реализация
+    работает с новыми списками на каждом шаге.
+    Сложность по времени: O(N log N) в среднем, O(N²) в худшем.
+    Дополнительная память: O(N) в среднем (стек рекурсии + промежуточные списки).
     """
     if len(arr) <= 1:
         return list(arr)
@@ -106,9 +110,13 @@ def merge_sort_strings(arr):
 
 def heap_sort_strings(arr):
     """Пирамидальная сортировка (HeapSort) для массива строк.
-    
+
     Строит двоичную max-кучу и последовательно извлекает максимальные элементы.
-    Сложность: O(N * log N), не требует дополнительной памяти.
+    Сложность по времени: O(N log N) гарантированно.
+    Дополнительная память: O(N) — создаётся копия всего массива (nums = list(arr)),
+    плюс O(log N) стека рекурсии в heapify.
+    Примечание: in-place HeapSort требует O(1) памяти, но данная реализация
+    работает с копией, поэтому заявлять O(1) нельзя.
     """
     nums = list(arr)
     n = len(nums)
@@ -188,25 +196,27 @@ def generate_word_list(size: int, source_words: list = None) -> list:
     return extended
 
 
-def generate_test_batches(max_n: int, source_words: list = None, num_points: int = 12) -> list:
-    """Формирует серию тестовых списков слов различной размерности от 1 до max_n.
-    
-    Возвращает список кортежей (размер N, список слов длины N).
-    Количество промежуточных точек оптимизировано (от 1 до num_points) для
-    обеспечения высокой скорости замеров и плавности кривой на графике.
-    """
-    if max_n <= 1:
-        return [(1, generate_word_list(1, source_words))]
+def generate_test_batches(max_n: int, source_words: list = None) -> list:
+    """Формирует серию тестовых списков слов по контрольным размерам ТЗ.
 
-    # Если N мало, тестируем буквально каждую размерность: 1, 2, 3...
-    if max_n <= num_points:
+    Гарантирует наличие точек: 100, 500, 1000, 2000, 5000 (если max_n это позволяет),
+    а также нескольких промежуточных для плавности кривой на графике.
+    Возвращает список кортежей (размер N, список слов длины N).
+    """
+    # Контрольные точки из ТЗ
+    required = [100, 500, 1000, 2000, 5000]
+
+    # Формируем базовый набор: несколько равномерных точек + контрольные из ТЗ
+    if max_n <= 10:
         sizes = list(range(1, max_n + 1))
     else:
-        # Иначе распределяем точки от 1 до max_n с равномерным шагом
-        step = max(1, max_n // num_points)
-        sizes = [1] + list(range(step, max_n, step))
-        if sizes[-1] != max_n:
-            sizes.append(max_n)
+        # Равномерная сетка из ~8 промежуточных точек
+        step = max(1, max_n // 8)
+        uniform = list(range(step, max_n, step))
+        # Объединяем с контрольными точками ТЗ, фильтруя те, что превышают max_n
+        combined = set(uniform) | {s for s in required if s <= max_n}
+        combined.add(max_n)
+        sizes = sorted(combined)
 
     batches = []
     for s in sizes:
@@ -633,11 +643,15 @@ def create_screen3(parent, on_back):
     slider_sample_size.grid(row=1, column=0, sticky="ew", pady=(4, 0))
 
     def run_benchmark():
-        """Запускает серию замеров времени сортировки для размеров списков от 1 до max_n."""
+        """Запускает серию замеров времени сортировки для размеров списков от 1 до max_n.
+
+        Каждая комбинация «размер × алгоритм» измеряется 5 раз; итоговое значение —
+        медиана пяти запусков. Это устраняет выбросы из-за случайных пиков нагрузки ОС.
+        """
         words_source = screen3_data.get("all_words", [])
         max_n = int(slider_sample_size.get())
 
-        # Генерируем серию выборок слов различной длины от 1 до max_n
+        # Генерируем серию выборок по контрольным размерам ТЗ
         batches = generate_test_batches(max_n, words_source)
 
         # Список алгоритмов, отмеченных чекбоксами
@@ -656,16 +670,23 @@ def create_screen3(parent, on_back):
             return
 
         results = {name: [] for name, _ in algos}
+        # Количество независимых замеров для усреднения (медианы)
+        n_repeats = 5
 
         # Замеряем время сортировки на каждой размерности
         for n, sample_words in batches:
             for name, func in algos:
-                # Передаем копию списка, чтобы все алгоритмы сортировали исходный массив в одинаковом состоянии
-                sample_copy = list(sample_words)
-                t0 = time.perf_counter()
-                func(sample_copy)
-                t1 = time.perf_counter()
-                elapsed_ms = (t1 - t0) * 1000.0
+                # Выполняем n_repeats независимых запусков и берём медиану
+                timings = []
+                for _ in range(n_repeats):
+                    sample_copy = list(sample_words)
+                    t0 = time.perf_counter()
+                    func(sample_copy)
+                    t1 = time.perf_counter()
+                    timings.append((t1 - t0) * 1000.0)
+                timings.sort()
+                # Медиана устойчива к случайным выбросам (пикам нагрузки ОС)
+                elapsed_ms = timings[n_repeats // 2]
                 results[name].append((n, round(elapsed_ms, 3)))
 
         screen3_data["benchmark_results"] = results
@@ -673,7 +694,10 @@ def create_screen3(parent, on_back):
 
         source_label = f"файлу ({screen3_data['file_name']})" if screen3_data.get("file_name") else "сгенерированному словарю"
         lbl_words_stats.configure(
-            text=f"Замеры выполнены: от 1 до {max_n} слов (точек: {len(batches)}) по {source_label}."
+            text=(
+                f"Замеры выполнены: до {max_n} слов (точек: {len(batches)}, "
+                f"повторений: {n_repeats}, итог: медиана) по {source_label}."
+            )
         )
 
     btn_benchmark = ctk.CTkButton(
